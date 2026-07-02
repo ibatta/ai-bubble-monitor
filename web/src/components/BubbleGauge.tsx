@@ -128,13 +128,13 @@ export function BubbleGauge({ composite }: Props) {
               <circle
                 cx={CX} cy={CY} r={R}
                 fill="none"
-                stroke="url(#arcGrad)"
+                stroke={colors.primary}
                 strokeWidth={SW}
                 strokeDasharray={fillDash}
                 strokeLinecap="round"
                 transform={rotateTransform}
                 filter="url(#glowFilter)"
-                style={{ transition: 'stroke-dasharray 0.9s cubic-bezier(0.4,0,0.2,1)' }}
+                style={{ transition: 'all 0.9s cubic-bezier(0.4,0,0.2,1)' }}
               />
             )}
 
