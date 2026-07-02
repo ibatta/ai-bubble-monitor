@@ -266,6 +266,8 @@ router.post('/c3/approve/:id', requireAdmin, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
     await approveC3Entry(id);
+    const { runC3 } = await import('../indicators/C3_circular_financing');
+    await runC3();
     res.json({ success: true, action: 'approved', id });
   } catch (err) {
     res.status(500).json({ error: 'Failed to approve C3 entry' });

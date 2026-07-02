@@ -404,19 +404,55 @@ export async function getPendingC3Entries(): Promise<unknown[]> {
   }
 }
 
+export async function getApprovedC3Entries(): Promise<unknown[]> {
+  if (isProduction) {
+    const db = getPool();
+    const res = await db.query(
+      `SELECT * FROM pending_c3_entries WHERE status = 'approved' ORDER BY reviewed_at DESC, created_at DESC`
+    );
+    return res.rows;
+  } else {
+    const db = getSqlite();
+    return db.prepare(
+      `SELECT * FROM pending_c3_entries WHERE status = 'approved' ORDER BY reviewed_at DESC, created_at DESC`
+    ).all();
+  }
+}
+
 export async function approveC3Entry(id: number): Promise<void> {
   const now = new Date().toISOString();
   if (isProduction) {
     const db = getPool();
+    const res = await db.query(`SELECT * FROM pending_c3_entries WHERE id=$1`, [id]);
+    const entry = res.rows[0];
     await db.query(
       `UPDATE pending_c3_entries SET status='approved', reviewed_by='admin', reviewed_at=$1 WHERE id=$2`,
       [now, id]
     );
+    if (entry) {
+      await insertManualEntry('C3', {
+        parties: entry.parties,
+        dealType: entry.deal_type,
+        amount: entry.estimated_amount_bn,
+        date: entry.deal_date,
+        source: entry.source_url
+      }, 'admin', entry.draft_note || undefined);
+    }
   } else {
     const db = getSqlite();
+    const entry = db.prepare(`SELECT * FROM pending_c3_entries WHERE id=?`).get(id) as any;
     db.prepare(
       `UPDATE pending_c3_entries SET status='approved', reviewed_by='admin', reviewed_at=? WHERE id=?`
     ).run(now, id);
+    if (entry) {
+      await insertManualEntry('C3', {
+        parties: entry.parties,
+        dealType: entry.deal_type,
+        amount: entry.estimated_amount_bn,
+        date: entry.deal_date,
+        source: entry.source_url
+      }, 'admin', entry.draft_note || undefined);
+    }
   }
 }
 

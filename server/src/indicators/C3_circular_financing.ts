@@ -1,5 +1,5 @@
 import { subScoreToState, computeTrend } from '../engine/scoring';
-import { upsertReading, getLatestReading, getAllManualEntries, logJobRun } from '../db/repository';
+import { upsertReading, getLatestReading, getAllManualEntries, getApprovedC3Entries, logJobRun } from '../db/repository';
 import { getIndicatorConfig } from '../config/indicators';
 
 const ID = 'C3';
@@ -27,13 +27,21 @@ export async function runC3(): Promise<void> {
       entered_at: Date;
       payload_json: string;
     }>;
+    const allApproved = await getApprovedC3Entries() as Array<{
+      created_at: string;
+      reviewed_at?: string;
+      deal_date?: string;
+    }>;
 
     const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
-    const recentEntries = allEntries.filter(
+    const recentManual = allEntries.filter(
       e => new Date(e.entered_at) >= oneYearAgo
     );
+    const recentApproved = allApproved.filter(
+      e => new Date(e.deal_date || e.reviewed_at || e.created_at) >= oneYearAgo
+    );
 
-    const dealCount = recentEntries.length;
+    const dealCount = Math.max(recentManual.length, recentApproved.length, recentManual.length + (recentApproved.length > recentManual.length ? recentApproved.length - recentManual.length : 0));
 
     let subScore: number;
     if (dealCount <= 3) subScore = 15;
