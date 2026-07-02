@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ReferenceArea, ResponsiveContainer,
@@ -60,12 +60,24 @@ export function HistoryChart({ indicatorId, onClose }: Props) {
       .finally(() => setLoading(false));
   }, [indicatorId]);
 
-  const chartData = indicator?.history?.map((h: any) => ({
-    date: formatDate(h.asOf ?? h.as_of),
-    subScore: h.subScore ?? h.sub_score,
-    rawValue: h.rawValue ?? h.raw_value,
-    state: h.state,
-  })) ?? [];
+  const chartData = useMemo(() => {
+    if (!indicator?.history?.length) return [];
+    const byDay = new Map<string, any>();
+    for (const h of indicator.history) {
+      const rawDate = (h as any).asOf ?? (h as any).as_of;
+      if (!rawDate) continue;
+      const d = new Date(rawDate);
+      if (isNaN(d.getTime())) continue;
+      const dayKey = d.toISOString().split('T')[0];
+      byDay.set(dayKey, {
+        date: formatDate(rawDate),
+        subScore: (h as any).subScore ?? (h as any).sub_score,
+        rawValue: (h as any).rawValue ?? (h as any).raw_value,
+        state: h.state,
+      });
+    }
+    return Array.from(byDay.values());
+  }, [indicator]);
 
   return (
     <div style={{
