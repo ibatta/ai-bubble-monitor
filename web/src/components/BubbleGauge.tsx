@@ -7,10 +7,17 @@ interface Props {
 
 const STATE_COLORS = {
   green:   { primary: '#16a34a', glow: 'rgba(22,163,74,0.18)',  bg: 'rgba(22,163,74,0.07)',  label: 'Healthy' },
-  amber:   { primary: '#d97706', glow: 'rgba(217,119,6,0.18)',  bg: 'rgba(217,119,6,0.07)',  label: 'Caution' },
+  amber:   { primary: '#f97316', glow: 'rgba(249,115,22,0.18)', bg: 'rgba(249,115,22,0.07)', label: 'Caution' },
   red:     { primary: '#dc2626', glow: 'rgba(220,38,38,0.18)',  bg: 'rgba(220,38,38,0.07)',  label: 'Risk'    },
   unknown: { primary: '#94a3b8', glow: 'rgba(148,163,184,0.15)', bg: 'rgba(148,163,184,0.06)', label: 'No Data' },
 };
+
+function getDynamicBandColor(score: number, fallbackState: string) {
+  if (score <= 33) return { primary: '#16a34a', glow: 'rgba(22,163,74,0.18)', bg: 'rgba(22,163,74,0.07)', label: 'Healthy' };
+  if (score <= 50) return { primary: '#eab308', glow: 'rgba(234,179,8,0.18)', bg: 'rgba(234,179,8,0.07)', label: 'Moderate' };
+  if (score <= 66) return { primary: '#f97316', glow: 'rgba(249,115,22,0.18)', bg: 'rgba(249,115,22,0.07)', label: 'Elevated' };
+  return { primary: '#dc2626', glow: 'rgba(220,38,38,0.18)', bg: 'rgba(220,38,38,0.07)', label: 'High Risk' };
+}
 
 const SIZE   = 260;
 const CX     = SIZE / 2;
@@ -32,7 +39,7 @@ function ringPoint(deg: number) {
 
 export function BubbleGauge({ composite }: Props) {
   const { score, state, band, verdict, staleCount, contributingCount, totalCount } = composite;
-  const colors = STATE_COLORS[state] ?? STATE_COLORS.unknown;
+  const colors = getDynamicBandColor(score, state);
 
   const trackDash  = `${CIRC * SPAN_RATIO} ${CIRC}`;
   const fillLength = CIRC * SPAN_RATIO * (score / 100);
@@ -77,7 +84,8 @@ export function BubbleGauge({ composite }: Props) {
             <defs>
               <linearGradient id="arcGrad" gradientUnits="userSpaceOnUse" x1={CX - R} y1={CY} x2={CX + R} y2={CY}>
                 <stop offset="0%"   stopColor="#16a34a" />
-                <stop offset="50%"  stopColor="#d97706" />
+                <stop offset="35%"  stopColor="#eab308" />
+                <stop offset="65%"  stopColor="#f97316" />
                 <stop offset="100%" stopColor="#dc2626" />
               </linearGradient>
 
@@ -140,7 +148,7 @@ export function BubbleGauge({ composite }: Props) {
             )}
 
             {/* Zone boundary ticks */}
-            {[0, 33, 67, 100].map((pct) => {
+            {[0, 33, 50, 67, 100].map((pct) => {
               const ang    = START_DEG + SPAN_DEG * (pct / 100);
               const angRad = ((ang - 90) * Math.PI) / 180;
               const ri = R - SW / 2 - 3;
@@ -157,14 +165,16 @@ export function BubbleGauge({ composite }: Props) {
 
             {/* Zone labels */}
             {(() => {
-              const safe    = ringPoint(START_DEG + SPAN_DEG * 0.165);
-              const caution = ringPoint(START_DEG + SPAN_DEG * 0.5);
-              const risk    = ringPoint(START_DEG + SPAN_DEG * 0.835);
+              const safe    = ringPoint(START_DEG + SPAN_DEG * 0.16);
+              const yellow  = ringPoint(START_DEG + SPAN_DEG * 0.41);
+              const orange  = ringPoint(START_DEG + SPAN_DEG * 0.59);
+              const risk    = ringPoint(START_DEG + SPAN_DEG * 0.84);
               return (
                 <>
-                  <text x={safe.x - 2}    y={safe.y + 18}    fill="#16a34a" fontSize={8} fontWeight={700} opacity={0.7} textAnchor="middle">SAFE</text>
-                  <text x={caution.x}     y={caution.y - 12} fill="#d97706" fontSize={8} fontWeight={700} opacity={0.7} textAnchor="middle">CAUTION</text>
-                  <text x={risk.x + 2}    y={risk.y + 18}    fill="#dc2626" fontSize={8} fontWeight={700} opacity={0.7} textAnchor="middle">RISK</text>
+                  <text x={safe.x - 2}   y={safe.y + 18}   fill="#16a34a" fontSize={7.5} fontWeight={700} opacity={0.8} textAnchor="middle">GREEN</text>
+                  <text x={yellow.x}     y={yellow.y - 12} fill="#eab308" fontSize={7.5} fontWeight={700} opacity={0.8} textAnchor="middle">YELLOW</text>
+                  <text x={orange.x}     y={orange.y - 12} fill="#f97316" fontSize={7.5} fontWeight={700} opacity={0.8} textAnchor="middle">ORANGE</text>
+                  <text x={risk.x + 2}   y={risk.y + 18}   fill="#dc2626" fontSize={7.5} fontWeight={700} opacity={0.8} textAnchor="middle">RED</text>
                 </>
               );
             })()}
