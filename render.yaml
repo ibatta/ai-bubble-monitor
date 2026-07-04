@@ -32,6 +32,8 @@ services:
         sync: false
       - key: ALERT_TO
         sync: false
+      - key: DASHBOARD_PASSWORD
+        sync: false
 
 databases:
   - name: ai-bubble-db
