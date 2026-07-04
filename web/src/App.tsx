@@ -6,7 +6,7 @@ import { ContextStrip }  from './components/ContextStrip';
 import { HealthPage }    from './components/HealthPage';
 import { HowToRead }     from './components/HowToRead';
 import { C3ReviewQueue } from './components/C3ReviewQueue';
-import { fetchDashboard, triggerRefresh } from './api';
+import { fetchDashboard, triggerRefresh, verifyDashboardPassword } from './api';
 import { DashboardData } from './types';
 
 type Tab = 'dashboard' | 'health' | 'howto';
@@ -24,8 +24,18 @@ function App() {
   const [c3PendingCount, setC3PendingCount] = useState(0);
   const [showAbout, setShowAbout]        = useState(false);
 
+  // Authentication State
+  const [authorized, setAuthorized] = useState<boolean>(true);
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
+
+  // Keep a ref of the data state to avoid infinite hook re-registration loops
+  const dataRef = React.useRef<DashboardData | null>(null);
+  dataRef.current = data;
+
   const loadData = useCallback(() => {
-    setLoading(prev => !data ? true : prev);
+    setLoading(prev => !dataRef.current ? true : prev);
     fetchDashboard()
       .then(d => {
         setData(d);
@@ -34,10 +44,34 @@ function App() {
         // Pulse for 2 seconds on each successful refresh
         setJustRefreshed(true);
         setTimeout(() => setJustRefreshed(false), 2000);
+        setAuthorized(true);
       })
-      .catch(err => setError(err.message ?? 'Failed to load dashboard data'))
+      .catch(err => {
+        if (err.response?.status === 401) {
+          setAuthorized(false);
+        } else {
+          setError(err.message ?? 'Failed to load dashboard data');
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password.trim()) return;
+    setVerifying(true);
+    setAuthError(null);
+    try {
+      await verifyDashboardPassword(password);
+      setAuthorized(true);
+      setError(null);
+      loadData();
+    } catch (err: any) {
+      setAuthError(err.response?.data?.error ?? 'Incorrect password');
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -82,6 +116,36 @@ function App() {
     { id: 'health',    icon: '🔧', label: 'System Health' },
     { id: 'howto',     icon: '📖', label: 'How To Read'   },
   ];
+
+  if (!authorized) {
+    return (
+      <div className="login-wrapper">
+        <div className="login-card">
+          <div className="login-header">
+            <div className="login-logo">🌡</div>
+            <h1>AI Bubble Monitor</h1>
+            <p>Enter the password to access the monitor dashboard.</p>
+          </div>
+          <form onSubmit={handlePasswordSubmit} className="login-form">
+            <div className="input-group">
+              <input
+                type="password"
+                placeholder="Enter password..."
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                autoFocus
+                className="login-input"
+              />
+            </div>
+            {authError && <div className="login-error">{authError}</div>}
+            <button type="submit" className="btn login-btn" disabled={verifying}>
+              {verifying ? 'Verifying…' : 'Unlock Dashboard'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-wrapper">

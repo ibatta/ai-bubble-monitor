@@ -76,8 +76,8 @@ export async function checkAndAlert(): Promise<void> {
       const prevState = previousStates.get(reading.indicator_id);
       const currentState = reading.state;
 
-      // Alert when newly flipping to red (not on startup)
-      if (prevState !== undefined && prevState !== 'red' && currentState === 'red') {
+      // Alert when leaving GREEN (changing from green to something else)
+      if (prevState !== undefined && prevState === 'green' && currentState !== 'green') {
         try {
           const html = buildEmailHtml(
             config.name,
@@ -91,19 +91,19 @@ export async function checkAndAlert(): Promise<void> {
           await transporter.sendMail({
             from: `"AI Bubble Monitor" <${smtpUser}>`,
             to: emailTo,
-            subject: `🔴 Alert: ${config.name} (${config.id}) flipped to RED`,
+            subject: `⚠️ Alert: ${config.name} (${config.id}) left GREEN (now ${currentState.toUpperCase()})`,
             html,
           });
 
           await logAlert(reading.indicator_id, prevState, currentState, emailTo);
-          console.log(`[Alerter] Sent red alert for ${reading.indicator_id}`);
+          console.log(`[Alerter] Sent left-green alert for ${reading.indicator_id}`);
         } catch (mailErr) {
           console.error(`[Alerter] Failed to send email for ${reading.indicator_id}:`, mailErr);
         }
       }
 
-      // Also alert when returning to green from red (all-clear)
-      if (prevState === 'red' && currentState === 'green') {
+      // Alert when entering GREEN (changing to green from something else)
+      if (prevState !== undefined && prevState !== 'green' && currentState === 'green') {
         try {
           await transporter.sendMail({
             from: `"AI Bubble Monitor" <${smtpUser}>`,
@@ -112,6 +112,7 @@ export async function checkAndAlert(): Promise<void> {
             html: buildEmailHtml(config.name, config.id, prevState, currentState, reading.raw_value, reading.source),
           });
           await logAlert(reading.indicator_id, prevState, currentState, emailTo);
+          console.log(`[Alerter] Sent returned-to-green alert for ${reading.indicator_id}`);
         } catch (mailErr) {
           console.error(`[Alerter] Failed to send green-return email:`, mailErr);
         }

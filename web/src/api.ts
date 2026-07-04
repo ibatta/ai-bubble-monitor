@@ -8,6 +8,11 @@ export async function fetchDashboard(): Promise<DashboardData> {
   return res.data;
 }
 
+export async function verifyDashboardPassword(password: string): Promise<boolean> {
+  await axios.post(`${BASE}/auth/verify`, { password });
+  return true;
+}
+
 export async function fetchIndicatorDetail(id: string): Promise<Indicator> {
   const res = await axios.get(`${BASE}/indicators/${id}`);
   return res.data;

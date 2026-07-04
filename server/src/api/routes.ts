@@ -21,6 +21,72 @@ import { getNextRunMs } from '../jobs/scheduler';
 
 const router = Router();
 
+function getCookie(cookieHeader: string | undefined, name: string): string | null {
+  if (!cookieHeader) return null;
+  const value = `; ${cookieHeader}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) {
+    const rawVal = parts.pop()?.split(';').shift() ?? null;
+    if (!rawVal) return null;
+    try {
+      return decodeURIComponent(rawVal);
+    } catch {
+      return rawVal;
+    }
+  }
+  return null;
+}
+
+// Auth middleware for dashboard routes
+router.use((req, res, next) => {
+  // Allow the verification endpoint
+  if (req.path === '/auth/verify') {
+    next();
+    return;
+  }
+
+  // Check if admin token is provided and valid (e.g. for backend scripts/cron jobs)
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.replace('Bearer ', '') === process.env.ADMIN_TOKEN) {
+    next();
+    return;
+  }
+
+  // Check dashboard password if configured in environment
+  if (process.env.DASHBOARD_PASSWORD) {
+    const cookieHeader = req.headers.cookie;
+    const token = getCookie(cookieHeader, 'dashboard_token');
+    if (token !== process.env.DASHBOARD_PASSWORD) {
+      res.status(401).json({ error: 'Dashboard password required' });
+      return;
+    }
+  }
+  next();
+});
+
+// Verification endpoint for dashboard password
+router.post('/auth/verify', (req, res) => {
+  const { password } = req.body;
+  const dashboardPassword = process.env.DASHBOARD_PASSWORD;
+
+  if (!dashboardPassword) {
+    res.json({ success: true, message: 'No password protection configured' });
+    return;
+  }
+
+  if (password === dashboardPassword) {
+    res.cookie('dashboard_token', password, {
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      path: '/',
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production'
+    });
+    res.json({ success: true });
+  } else {
+    res.status(401).json({ error: 'Incorrect password' });
+  }
+});
+
 // Auth middleware for admin routes
 function requireAdmin(req: Request, res: Response, next: () => void) {
   const token = req.headers.authorization?.replace('Bearer ', '');
